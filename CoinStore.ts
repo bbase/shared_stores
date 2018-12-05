@@ -46,7 +46,7 @@ export class CoinStore {
             const omni = new OmniJs(o, b);
             const balances = await omni.getBalance(this.keys[o].address, config);
             if (b == "NANO" && balances[b].pending > 0){
-                await pendingSyncNano({ config, rel: o, base: b, balance: balances[b].balance, pending: balances[b].pending, address: this.keys[o].address, option: { publicKey: this.keys[o].publicKey, wif: this.keys[o].wif } });
+                pendingSyncNano({ config, rel: o, base: b, balance: balances[b].balance, pending: balances[b].pending, address: this.keys[o].address, option: { publicKey: this.keys[o].publicKey, wif: this.keys[o].wif } });
             }
 
             runInAction(() => {
