@@ -1,181 +1,61 @@
-import {    
-    getConfig,
-} from 'app/constants'
-import axios from 'axios';
-import * as nanocurrency from 'nanocurrency';
-import BigNumber from 'bignumber.js'
+import { toJS, runInAction, observable, action } from 'mobx';
+import OmniJs from "app/omnijs";
+import { pendingSyncNano } from "app/omnijs/nano";
 
-export const getBalance = async ({ config, address, rel, base }) => {
-    const api = getConfig(config, rel, base).api;
+export class CoinStore {
+    @observable keys: any;
+    @observable balances: any;
+    @observable mnemonic: string;
+    @observable passphrase: string;
 
-    const data = await axios.post(`${api}`, {
-        "action": "account_balance",
-        "account": address,
-    });
-    //@ts-ignore
-    const balance = convert(data.data.balance, { from: 'raw', to: 'NANO' });
-    //@ts-ignore
-    const pending = convert(data.data.pending, { from: 'raw', to: 'NANO' });
-    const balances = { [rel]: { balance: +balance, pending: +pending, balance_raw: data.data.balance, pending_raw: data.data.pending } }
-    
-    return balances;
-}
+    public configStore;
+    constructor(configStore) {
+        this.configStore = configStore;
+        
+        this.keys = {};
+        this.balances = {};
+        //this.mnemonic = "connect ritual news sand rapid scale behind swamp damp brief explain ankle";
+        this.passphrase = "";
+    }
 
-const rawDecimals = 30;
-export const pendingSyncNano = async ({ rel, base, config, balance, pending, address, option }) => {
-    
-    const { api, rep } = getConfig(config, rel, base);
-    if (parseFloat(pending) > 0) {
-        const d1 = await axios.post(`${api}`, {
-            "action": "accounts_pending",
-            "accounts": [address],
-            "source": "true",
-        });
-        const d4 = await axios.post(`${api}`, {
-            "action": "account_representative",
-            "account": address,
-        });
+    @action
+    generateKeys = async () => {
+        const config = toJS(this.configStore.config);
+        let mnemonic = this.mnemonic || await this.configStore.getMnemonic();
+        for (let o in config){
+            const c = config[o];
+            const omni = new OmniJs(o, c.base ? o : c.ofBase);
+            
+            const k = omni.generateSeed(mnemonic, this.passphrase, { config })
 
-        const d3 = await axios.post(`${api}`, {
-            "action": "accounts_frontiers",
-            "accounts": [address],
-        });
-
-        const representative = d4.data.representative || rep;
-        const frontier = d3.data.frontiers[address];
-
-
-        for (let x1 in d1.data.blocks[address]) {
-            const o = d1.data.blocks[address][x1];
-            const previous = frontier || "0000000000000000000000000000000000000000000000000000000000000000";
-            const link = x1;
-            const w1 = await axios.post(`${api}`, {
-                "action": "work_generate",
-                "hash": frontier || option.publicKey
-            });
-
-            const bal = new BigNumber(balance).plus(o.amount);
-
-            const unsigned_block = {
-                link,
-                previous,
-                work: w1.data.work,
-                balance: bal.toString(10),
-                representative,
-            };
-            //@ts-ignore
-            const { hash, block } = nanocurrency.createBlock(option.wif, unsigned_block);
-            //@ts-ignore
-            const r1 = await axios.post(`${api}`, {
-                "action": "process",
-                block: JSON.stringify(block),
-            });
+            this.keys[o] = k;
+            mnemonic = k.mnemonic;
         }
+        if(!this.mnemonic){
+            this.mnemonic = mnemonic;            
+            this.configStore.setMnemonic(mnemonic);
+        }
+        this.syncBalances();
+    }
+    @action
+    syncBalances = () => {
+        const config = toJS(this.configStore.config);
+        Object.keys(config).map(async o=>{
+            const c = config[o];
+            const b = c.base ? o : c.ofBase
+            const omni = new OmniJs(o, b);
+            const balances = await omni.getBalance(this.keys[o].address, config);
+            if (b == "NANO" && balances[b].pending > 0){
+                pendingSyncNano({ config, rel: o, base: b, balance: balances[b].balance_raw, pending: balances[b].pending_raw, address: this.keys[o].address, option: { publicKey: this.keys[o].publicKey, wif: this.keys[o].wif } });
+            }
+
+            runInAction(() => {
+                Object.keys(balances).map(o=>{
+                    this.balances[o] = balances[o];
+                })
+            });
+        })
     }
 }
 
-
-/*!
- * nanocurrency-js: A toolkit for the Nano cryptocurrency.
- * Copyright (c) 2018 Marvin ROGER <dev at marvinroger dot fr>
- * Licensed under GPL-3.0 (https://git.io/vAZsK)
- */
-//import BigNumber from 'bignumber.js';
-
-//import { checkNumber, checkString } from './check';
-
-// tslint:disable-next-line variable-name
-const TunedBigNumber = BigNumber.clone({ EXPONENTIAL_AT: 1e9 });
-
-const ZEROES: { [index: string]: number | undefined } = {
-  hex: 0,
-  raw: 0,
-  nano: 24,
-  knano: 27,
-  Nano: 30,
-  NANO: 30,
-  KNano: 33,
-  MNano: 36,
-};
-
-/** Nano unit. */
-export enum Unit {
-  /** 10^0 raw in hexadecimal format */
-  hex = 'hex',
-  /** 10^0 raw */
-  raw = 'raw',
-  /** 10^24 raw */
-  nano = 'nano',
-  /** 10^27 raw */
-  knano = 'knano',
-  /** 10^30 raw */
-  Nano = 'Nano',
-  /** 10^30 raw */
-  NANO = 'NANO',
-  /** 10^33 raw */
-  KNano = 'KNano',
-  /** 10^36 raw */
-  MNano = 'MNano',
-}
-
-/** Convert parameters. */
-export interface ConvertParams {
-  /** The unit to convert the value from */
-  from: Unit;
-  /** The unit to convert the value to */
-  to: Unit;
-}
-
-/**
- * Convert a value from one Nano unit to another.
- *
- * @param value - The value to convert
- * @param params - Params
- * @returns Converted number
- */
-export function convert(value: string, params: ConvertParams) {
-  const paramsNotValid = new Error('From or to is not valid');
-  if (!params) throw paramsNotValid;
-
-  const fromZeroes: number | undefined = ZEROES[params.from];
-  const toZeroes: number | undefined = ZEROES[params.to];
-
-  if (typeof fromZeroes === 'undefined' || typeof toZeroes === 'undefined') {
-    throw new Error('From or to is not valid');
-  }
-
-  /*
-  const valueNotValid = new Error('Value is not valid');
-  if (!checkString) throw valueNotValid;
-  if (params.from === 'hex') {
-    if (!/^[0-9a-fA-F]{32}$/.test(value)) throw valueNotValid;
-  } else {
-    if (!checkNumber(value)) throw valueNotValid;
-  }
-  */
-
-  const difference = fromZeroes - toZeroes;
-
-  let bigNumber;
-  if (params.from === 'hex') {
-    bigNumber = new TunedBigNumber('0x' + value);
-  } else {
-    bigNumber = new TunedBigNumber(value);
-  }
-
-  if (difference < 0) {
-    for (let i = 0; i < -difference; i++) {
-      bigNumber = bigNumber.dividedBy(10);
-    }
-  } else if (difference > 0) {
-    for (let i = 0; i < difference; i++) {
-      bigNumber = bigNumber.multipliedBy(10);
-    }
-  }
-
-  if (params.to === 'hex') {
-    return bigNumber.toString(16).padStart(32, '0');
-  }
-
-  return bigNumber.toString();
-}
+export default CoinStore;
