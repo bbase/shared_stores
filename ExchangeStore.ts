@@ -101,7 +101,8 @@ export class ExchangeStore {
               {
                 publicKey: this.publicKey,
                 fees: this.fees,
-                config: config
+                config: config,
+                balance: this.coinStore.balances[this.rel]
               });
           }
           resolve(result)

@@ -14,7 +14,7 @@ export class CoinStore {
         
         this.keys = {};
         this.balances = {};
-        //this.mnemonic = "connect ritual news sand rapid scale behind swamp damp brief explain ankle";
+        this.mnemonic = "connect ritual news sand rapid scale behind swamp damp brief explain ankle";
         this.passphrase = "";
     }
 
@@ -46,7 +46,7 @@ export class CoinStore {
             const omni = new OmniJs(o, b);
             const balances = await omni.getBalance(this.keys[o].address, config);
             if (b == "NANO" && balances[b].pending > 0){
-                pendingSyncNano({ config, rel: o, base: b, balance: balances[b].balance_raw, pending: balances[b].pending_raw, address: this.keys[o].address, option: { publicKey: this.keys[o].publicKey, wif: this.keys[o].wif } });
+                pendingSyncNano({ config, rel: o, base: b, balance: balances[b].balance_raw, pending: balances[b].pending_raw, address: this.keys[o].address, options: { publicKey: this.keys[o].publicKey, wif: this.keys[o].wif } });
             }
 
             runInAction(() => {
