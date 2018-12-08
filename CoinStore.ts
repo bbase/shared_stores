@@ -41,19 +41,24 @@ export class CoinStore {
     syncBalances = () => {
         const config = toJS(this.configStore.config);
         Object.keys(config).map(async o=>{
-            const c = config[o];
-            const b = c.base ? o : c.ofBase
-            const omni = new OmniJs(o, b);
-            const balances = await omni.getBalance(this.keys[o].address, config);
-            if (b == "NANO" && balances[b].pending > 0){
-                pendingSyncNano({ config, rel: o, base: b, balance: balances[b].balance_raw, pending: balances[b].pending_raw, address: this.keys[o].address, options: { publicKey: this.keys[o].publicKey, wif: this.keys[o].wif } });
-            }
+            try{
+                const c = config[o];
+                const b = c.base ? o : c.ofBase
+                const omni = new OmniJs(o, b);
+                const balances = await omni.getBalance(this.keys[o].address, config);
+                if (b == "NANO" && balances[b].pending > 0){
+                    pendingSyncNano({ config, rel: o, base: b, balance: balances[b].balance_raw, pending: balances[b].pending_raw, address: this.keys[o].address, options: { publicKey: this.keys[o].publicKey, wif: this.keys[o].wif } });
+                }
 
-            runInAction(() => {
-                Object.keys(balances).map(o=>{
-                    this.balances[o] = balances[o];
-                })
-            });
+                runInAction(() => {
+                    Object.keys(balances).map(o=>{
+                        this.balances[o] = balances[o];
+                    })
+                });
+            }catch(e){
+                //some network error
+                console.error(e);
+            }
         })
     }
 }

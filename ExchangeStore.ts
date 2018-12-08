@@ -57,8 +57,6 @@ export class ExchangeStore {
       this.address = k.address;
       this.publicKey = k.publicKey;
       
-      //this.syncBalance();
-      //this.syncFee();
       this.syncTxs();
     }
   }
