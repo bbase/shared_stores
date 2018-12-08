@@ -74,7 +74,7 @@ export class ExchangeStore {
     });    
   }
 
-  send = (address, amount, _data = "") => {
+  send = async (address, amount, _data = "") => {
     let result;
     const config = toJS(this.configStore.config)
     if (config[this.base].dualFee){
@@ -103,7 +103,6 @@ export class ExchangeStore {
           });
       }
       return result
-   });
   }
 
 
