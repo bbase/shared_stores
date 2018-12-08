@@ -77,36 +77,32 @@ export class ExchangeStore {
   send = (address, amount, _data = "") => {
     let result;
     const config = toJS(this.configStore.config)
-
-    return new Promise(async(resolve, reject) => {
-      try{
-        if (config[this.base].dualFee){
-            result = await this.omni.send(
-              this.address,
-              address,
-              amount,
-              this.wif,
-              {
-                fees: this.fees,
-                gasLimit: Web3Utils.toHex(this.gasLimit.toString()),
-                gasPrice: Web3Utils.toHex(this.gasPrice.toString()),
-                config: config
-              });
-          }else {
-            result = await this.omni.send(
-              this.address,
-              address,
-              amount,
-              this.wif,
-              {
-                publicKey: this.publicKey,
-                fees: this.fees,
-                config: config,
-                balance: this.coinStore.balances[this.rel]
-              });
-          }
-          resolve(result)
-      }catch(e){reject(e)}
+    if (config[this.base].dualFee){
+        result = await this.omni.send(
+          this.address,
+          address,
+          amount,
+          this.wif,
+          {
+            fees: this.fees,
+            gasLimit: Web3Utils.toHex(this.gasLimit.toString()),
+            gasPrice: Web3Utils.toHex(this.gasPrice.toString()),
+            config: config
+          });
+      }else {
+        result = await this.omni.send(
+          this.address,
+          address,
+          amount,
+          this.wif,
+          {
+            publicKey: this.publicKey,
+            fees: this.fees,
+            config: config,
+            balance: this.coinStore.balances[this.rel]
+          });
+      }
+      return result
    });
   }
 
