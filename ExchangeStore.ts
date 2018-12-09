@@ -1,5 +1,5 @@
 import { observable, action, runInAction, toJS } from 'mobx';
-import OmniJs from "app/omnijs"
+import * as omnijs from "app/omnijs"
 import { CoinStore } from './CoinStore';
 import { ConfigStore } from '../ConfigStore';
 import Web3Utils from 'web3-utils';
@@ -25,7 +25,6 @@ export class ExchangeStore {
 
   public coinStore;
   public configStore;
-  public omni = new OmniJs();
 
   constructor(coinStore: CoinStore, configStore: ConfigStore){
       this.coinStore = coinStore;
@@ -39,7 +38,6 @@ export class ExchangeStore {
   @action 
   setRel = (rel) => {
     this.rel = rel;
-    this.omni.set(this.rel, this.base);
   }
 
   @action 
@@ -66,7 +64,7 @@ export class ExchangeStore {
     const config = toJS(this.configStore.config)
 
     //@ts-ignore
-    const { txs } = await this.omni.getTxs(this.address, config);
+    const { txs } = await omnijs.getTxs(this.rel, this.base, this.address, config);
     runInAction(() => {
       this.txs = txs;
     });    
@@ -76,7 +74,9 @@ export class ExchangeStore {
     let result;
     const config = toJS(this.configStore.config)
     if (config[this.base].dualFee){
-        result = await this.omni.send(
+        result = await omnijs.send(
+          this.rel,
+          this.base,
           this.address,
           address,
           amount,
@@ -88,7 +88,9 @@ export class ExchangeStore {
             config: config
           });
       }else {
-        result = await this.omni.send(
+        result = await omnijs.send(
+          this.rel,
+          this.base,          
           this.address,
           address,
           amount,

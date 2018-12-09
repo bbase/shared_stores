@@ -1,5 +1,5 @@
 import { toJS, runInAction, observable, action } from 'mobx';
-import OmniJs from "app/omnijs";
+import * as omnijs from "app/omnijs";
 import { pendingSyncNano } from "app/omnijs/nano";
 
 export class CoinStore {
@@ -24,9 +24,12 @@ export class CoinStore {
         let mnemonic = this.mnemonic || await this.configStore.getMnemonic();
         for (let o in config){
             const c = config[o];
-            const omni = new OmniJs(o, c.base ? o : c.ofBase);
             
-            const k = omni.generateSeed(mnemonic, this.passphrase, { config })
+            const k = omnijs.generateSeed(mnemonic, this.passphrase, { 
+                config,
+                rel: o,
+                base: c.base ? o : c.ofBase,
+            })
 
             this.keys[o] = k;
             mnemonic = k.mnemonic;
@@ -44,8 +47,7 @@ export class CoinStore {
             try{
                 const c = config[o];
                 const b = c.base ? o : c.ofBase
-                const omni = new OmniJs(o, b);
-                const balances = await omni.getBalance(this.keys[o].address, config);
+                const balances = await omnijs.getBalance(o, b, this.keys[o].address, config);
                 if (b == "NANO" && balances[b].pending > 0){
                     pendingSyncNano({ config, rel: o, base: b, balance: balances[b].balance_raw, pending: balances[b].pending_raw, address: this.keys[o].address, options: { publicKey: this.keys[o].publicKey, wif: this.keys[o].wif } });
                 }
