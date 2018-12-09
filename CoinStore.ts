@@ -19,13 +19,14 @@ export class CoinStore {
     }
 
     @action
-    generateKeys = async () => {
+    generateKeys = async (_new?: boolean, _passphrase?: string) => {
         const config = toJS(this.configStore.config);
-        let mnemonic = this.mnemonic || await this.configStore.getMnemonic();
+        let mnemonic = _new ? null : this.mnemonic || await this.configStore.getMnemonic();
+        const passphrase = _passphrase || this.passphrase;
         for (let o in config){
             const c = config[o];
             
-            const k = omnijs.generateSeed(mnemonic, this.passphrase, { 
+            const k = omnijs.generateSeed(mnemonic, passphrase, { 
                 config,
                 rel: o,
                 base: c.base ? o : c.ofBase,
@@ -35,10 +36,12 @@ export class CoinStore {
             mnemonic = k.mnemonic;
         }
         if(!this.mnemonic){
-            this.mnemonic = mnemonic;            
+            this.mnemonic = mnemonic;        
+            this.passphrase = passphrase;
             this.configStore.setMnemonic(mnemonic);
         }
         this.syncBalances();
+        return mnemonic;
     }
     @action
     syncBalances = () => {
