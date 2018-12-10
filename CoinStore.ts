@@ -19,9 +19,9 @@ export class CoinStore {
     }
 
     @action
-    generateKeys = async (_new?: boolean, _passphrase?: string) => {
+    generateKeys = async (_new?: boolean, _passphrase?: string, _mnemonic?: string) => {
         const config = toJS(this.configStore.config);
-        let mnemonic = _new ? null : this.mnemonic || await this.configStore.getMnemonic();
+        let mnemonic = _new ? null : _mnemonic || this.mnemonic || await this.configStore.getMnemonic();
         const passphrase = _passphrase || this.passphrase;
         for (let o in config){
             const c = config[o];

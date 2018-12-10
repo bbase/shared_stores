@@ -34,6 +34,9 @@ export class ExchangeStore {
   @action 
   setBase = (base) => {
     this.base = base;
+    if(!base){
+      this.txs = [];
+    }
   }
   @action 
   setRel = (rel) => {
