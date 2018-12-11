@@ -7,15 +7,16 @@ export class CoinStore {
     @observable balances: any;
     @observable mnemonic: string;
     @observable passphrase: string;
+    @observable isUnlocked: boolean;
 
     public configStore;
     constructor(configStore) {
         this.configStore = configStore;
         
         this.keys = {};
+        this.isUnlocked = false;
         this.balances = {};
         this.mnemonic = "connect ritual news sand rapid scale behind swamp damp brief explain ankle";
-        this.passphrase = "";
     }
 
     @action
@@ -40,6 +41,7 @@ export class CoinStore {
             this.passphrase = passphrase;
             this.configStore.setMnemonic(mnemonic);
         }
+        this.isUnlocked = true;
         this.syncBalances();
         return mnemonic;
     }
