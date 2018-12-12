@@ -22,7 +22,7 @@ export class CoinStore {
     @action
     generateKeys = async (_new?: boolean, _passphrase?: string, _mnemonic?: string) => {
         const config = toJS(this.configStore.config);
-        let mnemonic = _new ? null : _mnemonic || this.mnemonic || await this.configStore.getMnemonic();
+        let mnemonic = _new ? null : _mnemonic || this.mnemonic || await this.configStore.getKey('mnemonic');
         const passphrase = _passphrase || this.passphrase;
         for (let o in config){
             const c = config[o];
@@ -39,7 +39,7 @@ export class CoinStore {
         if(!this.mnemonic){
             this.mnemonic = mnemonic;        
             this.passphrase = passphrase;
-            this.configStore.setMnemonic(mnemonic);
+            this.configStore.setKey('mnemonic', mnemonic);
         }
         this.isUnlocked = true;
         this.syncBalances();
