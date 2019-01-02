@@ -1,18 +1,18 @@
-import { toJS, runInAction, observable, action } from 'mobx';
 import * as omnijs from "app/omnijs";
 import { pendingSyncNano } from "app/omnijs/nano";
+import { action, observable, runInAction, toJS } from "mobx";
 
 export class CoinStore {
-    @observable keys: any;
-    @observable balances: any;
-    @observable mnemonic: string;
-    @observable passphrase: string;
-    @observable isUnlocked: boolean;
+    @observable public keys: any;
+    @observable public balances: any;
+    @observable public mnemonic: string;
+    @observable public passphrase: string;
+    @observable public isUnlocked: boolean;
 
     public configStore;
     constructor(configStore) {
         this.configStore = configStore;
-        
+
         this.keys = {};
         this.isUnlocked = false;
         this.balances = {};
@@ -20,24 +20,24 @@ export class CoinStore {
     }
 
     @action
-    generateKeys = async (_new?: boolean, _passphrase?: string, _mnemonic?: string) => {
+    public generateKeys = async (_new?: boolean, _passphrase?: string, _mnemonic?: string) => {
         const config = toJS(this.configStore.config);
         let mnemonic = _new ? null : _mnemonic || this.mnemonic || await this.configStore.getMnemonic();
         const passphrase = _passphrase || this.passphrase;
-        for (let o in config){
+        for (const o in config) {
             const c = config[o];
-            
-            const k = omnijs.generateSeed(mnemonic, passphrase, { 
+
+            const k = omnijs.generateSeed(mnemonic, passphrase, {
                 config,
                 rel: o,
                 base: c.base ? o : c.ofBase,
-            })
+            });
 
             this.keys[o] = k;
             mnemonic = k.mnemonic;
         }
-        if(!this.mnemonic){
-            this.mnemonic = mnemonic;        
+        if (!this.mnemonic) {
+            this.mnemonic = mnemonic;
             this.passphrase = passphrase;
             this.configStore.setMnemonic(mnemonic);
         }
@@ -46,27 +46,27 @@ export class CoinStore {
         return mnemonic;
     }
     @action
-    syncBalances = () => {
+    public syncBalances = () => {
         const config = toJS(this.configStore.config);
-        Object.keys(config).map(async o=>{
-            try{
+        Object.keys(config).map(async (o) => {
+            try {
                 const c = config[o];
-                const b = c.base ? o : c.ofBase
+                const b = c.base ? o : c.ofBase;
                 const balances = await omnijs.getBalance(o, b, this.keys[o].address, config);
-                if (b == "NANO" && balances[b].pending > 0){
+                if (b == "NANO" && balances[b].pending > 0) {
                     pendingSyncNano({ config, rel: o, base: b, balance: balances[b].balance_raw, pending: balances[b].pending_raw, address: this.keys[o].address, options: { publicKey: this.keys[o].publicKey, wif: this.keys[o].wif } });
                 }
 
                 runInAction(() => {
-                    Object.keys(balances).map(o=>{
+                    Object.keys(balances).map((o) => {
                         this.balances[o] = balances[o];
-                    })
+                    });
                 });
-            }catch(e){
-                //some network error
+            } catch (e) {
+                // some network error
                 console.error(e);
             }
-        })
+        });
     }
 }
 

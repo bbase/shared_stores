@@ -1,28 +1,27 @@
-import { observable, action } from 'mobx';
+import { action, observable } from "mobx";
 
 export class AppStore {
-  @observable theme: number;
-  @observable snackmsg = "";
-  @observable snackopen:boolean = false;
+  @observable public theme: number;
+  @observable public snackmsg = "";
+  @observable public snackopen: boolean = false;
 
   constructor(theme = 0) {
     this.theme = theme;
   }
   @action
-  setTheme = (theme: number): void => {
+  public setTheme = (theme: number): void => {
     this.theme = theme;
-  };
-
+  }
 
   @action
-  snackOpen = (state) => {
+  public snackOpen = (state) => {
     this.snackopen = state;
-  };
+  }
   @action
-  setSnackMsg = (msg) => {
+  public setSnackMsg = (msg) => {
     this.snackmsg = msg;
     this.snackOpen(true);
-  };
+  }
 
 }
 

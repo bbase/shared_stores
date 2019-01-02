@@ -1,82 +1,80 @@
-import { observable, action, runInAction, toJS } from 'mobx';
-import * as omnijs from "app/omnijs"
-import { CoinStore } from './CoinStore';
-import { ConfigStore } from '../ConfigStore';
-import Web3Utils from 'web3-utils';
-
+import * as omnijs from "app/omnijs";
+import {ethers} from "ethers";
+import { action, observable, runInAction, toJS } from "mobx";
+import { ConfigStore } from "../ConfigStore";
+import { CoinStore } from "./CoinStore";
 
 export class ExchangeStore {
-  
-  @observable base = "";
-  @observable rel = "";
 
-  @observable address = "";
-  @observable publicKey = "";
-  @observable seed = "";
-  
-  @observable wif = "";
-  @observable fees = 0;
-  
-  @observable gasLimit = 0;
-  @observable gasPrice = 0;
+  @observable public base = "";
+  @observable public rel = "";
 
-  @observable txs = [];
+  @observable public address = "";
+  @observable public publicKey = "";
+  @observable public seed = "";
 
+  @observable public wif = "";
+  @observable public fees = 0;
+
+  @observable public gasLimit = 0;
+  @observable public gasPrice = 0;
+
+  @observable public txs = [];
 
   public coinStore;
   public configStore;
 
-  constructor(coinStore: CoinStore, configStore: ConfigStore){
+  constructor(coinStore: CoinStore, configStore: ConfigStore) {
       this.coinStore = coinStore;
       this.configStore = configStore;
   }
 
-  @action 
-  setBase = (base) => {
+  @action
+  public setBase = (base) => {
     this.base = base;
-    if(!base){
+    if (!base) {
       this.txs = [];
     }
   }
-  @action 
-  setRel = (rel) => {
+  @action
+  public setRel = (rel) => {
     this.rel = rel;
   }
 
-  @action 
-  init = () => {
-    
-    const config = toJS(this.configStore.config)
-    if (Object.keys(config).length > 0){
+  @action
+  public init = () => {
+
+    const config = toJS(this.configStore.config);
+    if (Object.keys(config).length > 0) {
       let r = this.rel;
-      if (config[this.base].hasOwnProperty("assets")){
+      if (config[this.base].hasOwnProperty("assets")) {
         r = this.base;
       }
-      
+
       const k = this.coinStore.keys[r];
       this.wif = k.wif;
       this.address = k.address;
       this.publicKey = k.publicKey;
-      
+
       this.syncTxs();
     }
   }
 
-  @action 
-  syncTxs = async (timeout = true) => {
-    const config = toJS(this.configStore.config)
+  @action
+  public syncTxs = async (timeout = true) => {
+    const config = toJS(this.configStore.config);
 
-    //@ts-ignore
+    // @ts-ignore
     const { txs } = await omnijs.getTxs(this.rel, this.base, this.address, config);
     runInAction(() => {
       this.txs = txs;
-    });    
+    });
   }
 
-  send = async (address, amount, _data = "") => {
+  public send = async (address, amount, _data = "") => {
     let result;
-    const config = toJS(this.configStore.config)
-    if (config[this.base].dualFee){
+    const config = toJS(this.configStore.config);
+    if (config[this.base].dualFee) {
         result = await omnijs.send(
           this.rel,
           this.base,
@@ -86,14 +84,14 @@ export class ExchangeStore {
           this.wif,
           {
             fees: this.fees,
-            gasLimit: Web3Utils.toHex(this.gasLimit.toString()),
-            gasPrice: Web3Utils.toHex(this.gasPrice.toString()),
-            config: config
+            gasLimit: ethers.utils.hexlify(this.gasLimit.toString()),
+            gasPrice: ethers.utils.hexlify(this.gasPrice.toString()),
+            config,
           });
-      }else {
+      } else {
         result = await omnijs.send(
           this.rel,
-          this.base,          
+          this.base,
           this.address,
           address,
           amount,
@@ -101,20 +99,16 @@ export class ExchangeStore {
           {
             publicKey: this.publicKey,
             fees: this.fees,
-            config: config,
-            balance: this.coinStore.balances[this.rel]
+            config,
+            balance: this.coinStore.balances[this.rel],
           });
       }
-      return result
+    return result;
   }
 
-
-
-
-
   @action
-  setFees = (fees, kind = 0) => {
-    const config = toJS(this.configStore.config)
+  public setFees = (fees, kind = 0) => {
+    const config = toJS(this.configStore.config);
 
     if (config[this.base].dualFee) {
       switch (kind) {
