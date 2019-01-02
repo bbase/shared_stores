@@ -24,7 +24,7 @@ export class CoinStore {
         const config = toJS(this.configStore.config);
         let mnemonic = _new ? null : _mnemonic || this.mnemonic || await this.configStore.getKey('mnemonic');
         const passphrase = _passphrase || this.passphrase;
-        for (const o in config) {
+        for (const o of Object.keys(config)) {
             const c = config[o];
 
             const k = omnijs.generateSeed(mnemonic, passphrase, {
