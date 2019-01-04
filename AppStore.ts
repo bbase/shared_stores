@@ -14,11 +14,11 @@ export class AppStore {
   }
 
   @action
-  public snackOpen = (state) => {
+  public snackOpen = (state: boolean): void => {
     this.snackopen = state;
   }
   @action
-  public setSnackMsg = (msg) => {
+  public setSnackMsg = (msg: string): void => {
     this.snackmsg = msg;
     this.snackOpen(true);
   }

@@ -1,8 +1,8 @@
 import * as omnijs from "app/omnijs";
-import {ethers} from "ethers";
 import { action, observable, runInAction, toJS } from "mobx";
 import { ConfigStore } from "../ConfigStore";
 import { CoinStore } from "./CoinStore";
+import { TransactionType } from "app/constants";
 
 export class ExchangeStore {
 
@@ -19,7 +19,7 @@ export class ExchangeStore {
   @observable public gasLimit = 0;
   @observable public gasPrice = 0;
 
-  @observable public txs = [];
+  @observable public txs: TransactionType[] = [];
 
   public coinStore;
   public configStore;
@@ -71,32 +71,31 @@ export class ExchangeStore {
     });
   }
 
-  public send = async (address, amount, _data = "") => {
-    let result;
+  public send = async (address, amount, _data = ""): Promise<string> => {
+    let result = "";
     const config = toJS(this.configStore.config);
     if (config[this.base].dualFee) {
         result = await omnijs.send(
-          this.rel,
-          this.base,
+          {rel: this.rel, base: this.base},
           this.address,
           address,
           amount,
-          this.wif,
           {
+            wif: this.wif,
+            publicKey: this.publicKey,
             fees: this.fees,
-            gasLimit: ethers.utils.hexlify(this.gasLimit.toString()),
-            gasPrice: ethers.utils.hexlify(this.gasPrice.toString()),
+            gasLimit: Number(this.gasLimit),
+            gasPrice: Number(this.gasPrice),
             config,
           });
       } else {
         result = await omnijs.send(
-          this.rel,
-          this.base,
+          { rel: this.rel, base: this.base },
           this.address,
           address,
           amount,
-          this.wif,
           {
+            wif: this.wif,
             publicKey: this.publicKey,
             fees: this.fees,
             config,
