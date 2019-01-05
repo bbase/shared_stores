@@ -52,11 +52,13 @@ export class ExchangeStore {
       }
 
       const k = this.coinStore.keys[r];
-      this.wif = k.wif;
-      this.address = k.address;
-      this.publicKey = k.publicKey;
-
-      this.syncTxs();
+      if(k){
+        this.wif = k.wif;
+        this.address = k.address;
+        this.publicKey = k.publicKey;
+        
+        this.syncTxs();
+      }
     }
   }
 
@@ -64,8 +66,7 @@ export class ExchangeStore {
   public syncTxs = async (timeout = true) => {
     const config = toJS(this.configStore.config);
 
-    // @ts-ignore
-    const { txs } = await omnijs.getTxs(this.rel, this.base, this.address, config);
+    const { txs } = await omnijs.getTxs({ rel: this.rel, base: this.base}, this.address, config);
     runInAction(() => {
       this.txs = txs;
     });
