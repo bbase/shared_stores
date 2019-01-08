@@ -4,7 +4,7 @@ export class AppStore {
   @observable public theme: number;
   @observable public snackmsg = "";
   @observable public snackopen: boolean = false;
-  @observable public slideLeft: boolean = false;
+  @observable public settingsOpen: boolean = false;
 
   constructor(theme = 0) {
     this.theme = theme;
@@ -24,8 +24,8 @@ export class AppStore {
     this.snackOpen(true);
   }
   @action
-  public toggleSlide = (): void => {
-    this.slideLeft = !this.slideLeft;
+  public toggleSettings = (): void => {
+    this.settingsOpen = !this.settingsOpen;
   }
 
 }
