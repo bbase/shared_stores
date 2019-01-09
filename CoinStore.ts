@@ -2,6 +2,14 @@ import * as omnijs from "app/omnijs";
 import { pendingSyncNano } from "app/omnijs/nano";
 import { action, observable, runInAction, toJS } from "mobx";
 
+interface generateKeysType {
+    _new: boolean;
+    _passphrase: string;
+    _mnemonic?: string;
+    store_mnemonic?: boolean;
+    store_passphrase?: boolean;
+};
+
 export class CoinStore {
     @observable public keys: any;
     @observable public balances: any;
@@ -16,20 +24,33 @@ export class CoinStore {
         this.keys = {};
         this.isUnlocked = false;
         this.balances = {};
-        this.mnemonic = "connect ritual news sand rapid scale behind swamp damp brief explain ankle";
+        //this.mnemonic = "connect ritual news sand rapid scale behind swamp damp brief explain ankle";
+        this.mnemonic = "";
     }
 
     @action
-    public emptyKeys = async () => {
+    public emptyKeys = async (forget: boolean = false) => {
         this.isUnlocked = false;
         this.keys = {};
         this.balances = {};
+        if(forget){
+            this.mnemonic = "";
+            this.passphrase = "";
+            this.configStore.setKey('passphrase', "");
+            this.configStore.setKey('mnemonic', "");
+        }
     }
+
     @action
-    public generateKeys = async (_new?: boolean, _passphrase?: string, _mnemonic?: string) => {
+    public generateKeys = async ({_new, _passphrase, _mnemonic, store_mnemonic, store_passphrase}: generateKeysType) => {
+        let p_local = "", m_local="";
+        try{ p_local = await this.configStore.getKey('passphrase') }catch(e){}
+        try{ m_local = await this.configStore.getKey('mnemonic') }catch(e){}
+
         const config = toJS(this.configStore.config);
-        let mnemonic = _new ? null : _mnemonic || this.mnemonic || await this.configStore.getKey('mnemonic');
-        const passphrase = _passphrase || this.passphrase;
+        let mnemonic = _new ? null : _mnemonic || this.mnemonic || m_local;
+        const passphrase = _passphrase || this.passphrase || p_local;
+
         for (const o of Object.keys(config)) {
             const c = config[o];
 
@@ -42,12 +63,15 @@ export class CoinStore {
             this.keys[o] = k;
             mnemonic = k.mnemonic;
         }
-        if (!this.mnemonic) {
+        if(store_mnemonic) this.configStore.setKey('mnemonic', mnemonic);
+        if(store_passphrase) this.configStore.setKey('passphrase', passphrase);
+        
+        runInAction(() => {        
             this.mnemonic = mnemonic;
             this.passphrase = passphrase;
-            this.configStore.setKey('mnemonic', mnemonic);
-        }
-        this.isUnlocked = true;
+        
+            this.isUnlocked = true;
+        });
         this.syncBalances();
         return mnemonic;
     }
