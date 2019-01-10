@@ -16,6 +16,8 @@ export class CoinStore {
     @observable public mnemonic: string;
     @observable public passphrase: string;
     @observable public isUnlocked: boolean;
+    @observable public isUnlockable: boolean;
+    @observable public p_local: string;
 
     public configStore;
     constructor(configStore) {
@@ -26,6 +28,29 @@ export class CoinStore {
         this.balances = {};
         //this.mnemonic = "connect ritual news sand rapid scale behind swamp damp brief explain ankle";
         this.mnemonic = "";
+
+
+    }
+    
+    @action
+    public init = async () => {
+        let isUnlockable = false;
+        let p_local = "";
+        try {
+          await this.configStore.getKey('mnemonic')
+          isUnlockable = true;
+        } catch (e) {}
+        try { 
+            p_local = await this.configStore.getKey('passphrase')
+        } catch (e) { }
+        runInAction(() => {
+            this.p_local = p_local;
+            this.isUnlockable = isUnlockable;
+        })
+    }
+    @action
+    public set_p_local = (t) =>{
+        this.p_local = t;
     }
 
     @action
