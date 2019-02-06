@@ -1,35 +1,39 @@
 import axios from "axios";
 import { action, observable, runInAction } from "mobx";
-// @ts-ignore
-export class PriceStore {
-    @observable public fiat_prices: any;
-    @observable public fiat = { name: "USD", symbol: "$" };
+import { config } from "app/constants";
+import { types, flow } from "mobx-state-tree";
 
-    public configStore;
-    constructor(configStore) {
-        this.fiat_prices = {};
-        this.configStore = configStore;
+const PriceStore = types.model({
+    fiat_prices: types.optional(types.map(types.map(types.number)), {}),
+    fiat: types.model({
+        name: types.string,
+        symbol: types.string,
+    }),
+}).views(self => {
+    return {
+        getFiatPrice(ticker: string){
+            return self.fiat_prices[ticker] ? self.fiat_prices[ticker][self.fiat.name] : 0;
+        }           
     }
-    public getFiatPrice = (ticker: string) => {
-        return this.fiat_prices[ticker] ? this.fiat_prices[ticker][this.fiat.name] : 0;
-    }
-    @action
-    public syncFiatPrices = async () => {
+}).actions(self => {
+    const syncFiatPrices = flow(function* syncFiatPrices(){
         let allcoins = [];
-        for (const x in this.configStore.config) {
+        for (const x in config) {
             allcoins.push(x);
-            if (this.configStore.config.assets) {
-                allcoins = allcoins.concat(Object.keys(this.configStore.config.assets));
+            if (config.assets) {
+                allcoins = allcoins.concat(Object.keys(config.assets));
             }
         }
 
-        const data = await axios.get(`https://min-api.cryptocompare.com/data/pricemulti?fsyms=${([].concat.apply([], [allcoins])).join()}&tsyms=${this.fiat.name}`);
+        const data = yield axios.get(`https://min-api.cryptocompare.com/data/pricemulti?fsyms=${([].concat.apply([], [allcoins])).join()}&tsyms=${this.fiat.name}`);
         runInAction(() => {
             Object.keys(data.data).map((o) => {
-                this.fiat_prices[o] = data.data[o];
+                self.fiat_prices[o] = data.data[o];
             });
         });
-    }
-}
-
+    })
+    return {
+        syncFiatPrices,
+    };
+});
 export default PriceStore;
