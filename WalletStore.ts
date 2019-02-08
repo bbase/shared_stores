@@ -1,20 +1,20 @@
-import { generateKeysType, config, explorer_api, TransactionType, syncBalances } from "app/constants";
+import { generateKeysType, config, TransactionType, syncBalances, MAX_DECIMAL_FIAT, syncTxs } from "app/constants";
 import { types, destroy, flow } from "mobx-state-tree";
-import { getKey, setKey, http2Ws } from "app/utils";
+import { getKey, setKey } from "app/utils";
 import * as omnijs from "app/omnijs";
+import PriceStore from "./PriceStore";
+
 
 
 const WalletStore = types.model({
   keys: types.optional(types.map(types.model({
-    ticker: types.string,
+    ticker: types.identifier,
     wif: types.string,
     publicKey: types.string,
     address: types.string,
-    mnemonic: types.string,
   })), {}),
   balances: types.optional(types.map(types.model({
-    balance_raw: types.string,
-    pending_raw: types.string,
+    ticker: types.identifier,
     balance: types.number,
     pending: types.number,
   })), {}),
@@ -34,10 +34,46 @@ const WalletStore = types.model({
   fees: types.optional(types.number, 0),
   gasPrice: types.optional(types.number, 0),
   gasLimit: types.optional(types.number, 0),
+  priceStore: types.optional(PriceStore,{
+    fiat: {
+      name: "USD",
+      symbol: "$"
+    }    
+  }),
 }).views(self => {
   return {
     get address(){
-      return 0;
+      return self.keys.get(self.rel).address
+    },
+    balance(ticker = self.rel){
+      const balance = self.balances.has(ticker) ? self.balances.get(ticker).balance : 0;
+      return +balance.toFixed(MAX_DECIMAL_FIAT)
+    },
+    pending(pendingStr){
+      const pending = self.balances.has(self.rel) ? self.balances.get(self.rel).pending : 0;
+      return pending > 0 ? `(${+pending.toFixed(MAX_DECIMAL_FIAT)} ${pendingStr})` : ""      
+    },
+    coinlist(sort_type: number, sort_direction: number){
+      let coinlist = self.base ? ([self.base]).concat(config[self.base].forks || [], Object.keys(config[self.base].assets || {})) : [];
+
+      if (sort_type == 0 && sort_direction == 0) {
+        coinlist.sort((a, b) => { if (a < b) { return -1 } if (a > b) { return 1 } return 0 })
+      } else if (sort_type == 0 && sort_direction == 1) {
+        coinlist.sort((b, a) => { if (a < b) { return -1 } if (a > b) { return 1 } return 0 })
+      } else if (sort_type == 1 && sort_direction == 0) {
+        coinlist.sort((a, b) => {
+          const ap = self.priceStore.getPriceMulBal(a);
+          const bp = self.priceStore.getPriceMulBal(b);
+          if (bp < ap) { return -1 } if (a > b) { return 1 } return 0
+        })
+      } else if (sort_type == 1 && sort_direction == 1) {
+        coinlist.sort((b, a) => {
+          const ap = self.priceStore.getPriceMulBal(a);
+          const bp = self.priceStore.getPriceMulBal(b);
+          if (bp < ap) { return -1 } if (a > b) { return 1 } return 0
+        })
+      }
+      return coinlist;
     }
   }
 }).actions(self => {
@@ -49,6 +85,12 @@ const WalletStore = types.model({
   }
   const setRel = (rel) => {
     self.rel = rel;
+  }
+  const fetchTxs = () => {
+    if (self.base && self.rel) {
+      const address = self.keys.get(self.rel) ? self.keys.get(self.rel).address : self.keys.get(self.base).address;
+      syncTxs({ rel: self.rel, base: self.base, address });
+    }            
   }
 
   const updatePassLocal = (pass_local: string) => {
@@ -94,7 +136,7 @@ const WalletStore = types.model({
     for (const o of Object.keys(config)) {
       const c = config[o];
       const k = omnijs.generatePKey({ rel: o, base: c.base ? o : c.ofBase }, config, seed);
-      self.keys[o] = k;
+      self.keys.set(o, {...k, ticker: o});
     }
     if (store_mnemonic) setKey('mnemonic', mnemonic);
     if (store_passphrase) setKey('passphrase', passphrase);
@@ -103,6 +145,7 @@ const WalletStore = types.model({
     self.passphrase = passphrase;
 
     self.isUnlocked = true;
+    syncBalances(self.keys);
     return mnemonic;
   })
 
@@ -125,7 +168,7 @@ const WalletStore = types.model({
   }
 
   const setBalance = (key, value) => {
-    self.balances.set(key, value);
+    self.balances.set(key, { ...value, ticker: key});
   }
   const setTxs = (txs) => {
     self.txs = txs;
@@ -133,6 +176,7 @@ const WalletStore = types.model({
   return {
     setBalance,
     setTxs,
+    fetchTxs,
 
     setBase,
     setRel,
@@ -143,4 +187,5 @@ const WalletStore = types.model({
     setFees,
   } 
 });
+export type IWalletStore = typeof WalletStore.Type;
 export default WalletStore;

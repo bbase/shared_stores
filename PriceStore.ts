@@ -1,10 +1,14 @@
 import axios from "axios";
-import { action, observable, runInAction } from "mobx";
-import { config } from "app/constants";
-import { types, flow } from "mobx-state-tree";
+import { config, MAX_DECIMAL_FIAT, numberWithCommas } from "app/constants";
+import { types, flow, getParent } from "mobx-state-tree";
+import {IWalletStore} from "./WalletStore"
 
+const fiat_prices = types.model({
+    ticker: types.identifier,
+    value: types.number
+});
 const PriceStore = types.model({
-    fiat_prices: types.optional(types.map(types.map(types.number)), {}),
+    fiat_prices: types.map(fiat_prices),
     fiat: types.model({
         name: types.string,
         symbol: types.string,
@@ -12,8 +16,20 @@ const PriceStore = types.model({
 }).views(self => {
     return {
         getFiatPrice(ticker: string){
-            return self.fiat_prices[ticker] ? self.fiat_prices[ticker][self.fiat.name] : 0;
-        }           
+            return self.fiat_prices.has(ticker) ? self.fiat_prices.get(ticker).value : 0;
+        },
+        getPriceMulBal(ticker: string): number{
+            const price = this.getFiatPrice(ticker)
+            const balance = (getParent(self) as IWalletStore).balance(ticker);
+            return price * balance;
+        },
+        getBalanceFiat(ticker: string){
+            return +(this.getPriceMulBal(ticker)).toFixed(MAX_DECIMAL_FIAT);
+        },
+        getBalanceFiatWithComma(ticker: string){
+            return numberWithCommas(this.getBalanceFiat(ticker))
+        }
+               
     }
 }).actions(self => {
     const syncFiatPrices = flow(function* syncFiatPrices(){
@@ -26,10 +42,8 @@ const PriceStore = types.model({
         }
 
         const data = yield axios.get(`https://min-api.cryptocompare.com/data/pricemulti?fsyms=${([].concat.apply([], [allcoins])).join()}&tsyms=${this.fiat.name}`);
-        runInAction(() => {
-            Object.keys(data.data).map((o) => {
-                self.fiat_prices[o] = data.data[o];
-            });
+        Object.keys(data.data).map((o) => {
+            self.fiat_prices.set(o, data.data[o][this.fiat.name]);
         });
     })
     return {
