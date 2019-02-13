@@ -32,22 +32,11 @@ const PriceStore = types.model({
                
     }
 }).actions(self => {
-    const syncFiatPrices = flow(function* syncFiatPrices(){
-        let allcoins = [];
-        for (const x in config) {
-            allcoins.push(x);
-            if (config.assets) {
-                allcoins = allcoins.concat(Object.keys(config.assets));
-            }
-        }
-
-        const data = yield axios.get(`https://min-api.cryptocompare.com/data/pricemulti?fsyms=${([].concat.apply([], [allcoins])).join()}&tsyms=${this.fiat.name}`);
-        Object.keys(data.data).map((o) => {
-            self.fiat_prices.set(o, data.data[o][this.fiat.name]);
-        });
-    })
+    const setFiatPrice = (key, value) =>{
+        self.fiat_prices.set(key, value);
+    }
     return {
-        syncFiatPrices,
+        setFiatPrice,
     };
 });
 export default PriceStore;

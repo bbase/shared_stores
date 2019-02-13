@@ -1,9 +1,11 @@
-import { generateKeysType, config, TransactionType, syncBalances, MAX_DECIMAL_FIAT, syncTxs } from "app/constants";
+import { generateKeysType, config, TransactionType, syncBalances, MAX_DECIMAL_FIAT, syncTxs, syncFiatPrices, explorer_api } from "app/constants";
 import { types, destroy, flow } from "mobx-state-tree";
+import axios from "axios";
 import { getKey, setKey } from "app/utils";
 import * as omnijs from "app/omnijs";
 import PriceStore from "./PriceStore";
 
+const EOSES = ["EOS"];
 
 
 const WalletStore = types.model({
@@ -29,6 +31,7 @@ const WalletStore = types.model({
 
   isUnlocked: types.optional(types.boolean, false),
   isUnlockable: types.optional(types.boolean, false),
+  isAutoUnlockable: types.optional(types.boolean, false),
   pass_local: types.optional(types.string, ""),
 
   fees: types.optional(types.number, 0),
@@ -42,8 +45,11 @@ const WalletStore = types.model({
   }),
 }).views(self => {
   return {
+    getKey(rel, base){
+      return self.keys.has(rel) ? self.keys.get(rel) : self.keys.get(base);
+    },
     get address(){
-      return self.keys.get(self.rel).address
+      return this.getKey(self.rel, self.base).address
     },
     balance(ticker = self.rel){
       const balance = self.balances.has(ticker) ? self.balances.get(ticker).balance : 0;
@@ -97,17 +103,22 @@ const WalletStore = types.model({
     self.pass_local = pass_local;
   }
   const init = flow(function* init() {
-    let isUnlockable = false, pass_local = "";
+    let isUnlockable = false, isAutoUnlockable = false, pass_local = "";
     try {
       yield getKey('mnemonic')
       isUnlockable = true;
     } catch (e) { }
     try {
       pass_local = yield getKey('passphrase')
+      isAutoUnlockable = true;
     } catch (e) { }
 
     updatePassLocal(pass_local);
     self.isUnlockable = isUnlockable;
+    self.isAutoUnlockable = isAutoUnlockable;
+    if (isAutoUnlockable){
+      generateKeys({});
+    }
   })
   const emptyKeys = (forget: boolean = false) => {
     self.isUnlocked = false;
@@ -120,7 +131,11 @@ const WalletStore = types.model({
       setKey('mnemonic', "");
     }
   }  
-
+  const get_eos_name = flow(function* (ticker, k){
+    const response = yield axios.get(`${explorer_api}/eos_account_name?public_key=${k.publicKey}&ticker=${ticker}`)
+    const account_name = response.data.account_name;
+    self.keys.set(ticker, { ...k, ticker, address: account_name || k.publicKey  });
+  })
   const generateKeys = flow(function* generateKeys({ _new, _passphrase, _mnemonic, store_mnemonic, store_passphrase }: generateKeysType) {
     let p_local = "", m_local = "";
     try { p_local = yield getKey('passphrase') } catch (e) { }
@@ -135,8 +150,12 @@ const WalletStore = types.model({
 
     for (const o of Object.keys(config)) {
       const c = config[o];
-      const k = omnijs.generatePKey({ rel: o, base: c.base ? o : c.ofBase }, config, seed);
-      self.keys.set(o, {...k, ticker: o});
+      const k = omnijs.generatePKey({ rel: o, base: c.base ? o : c.ofBase }, seed);
+      if (EOSES.indexOf(o) != -1){
+        yield get_eos_name(o, k);
+      }else{
+        self.keys.set(o, {...k, ticker: o});
+      }
     }
     if (store_mnemonic) setKey('mnemonic', mnemonic);
     if (store_passphrase) setKey('passphrase', passphrase);
@@ -146,6 +165,7 @@ const WalletStore = types.model({
 
     self.isUnlocked = true;
     syncBalances(self.keys);
+    syncFiatPrices(self.priceStore);
     return mnemonic;
   })
 
@@ -163,7 +183,7 @@ const WalletStore = types.model({
           break;
       }
     } else {
-      self.fees = fees;
+      self.fees = parseInt(fees) || 0;
     }
   }
 
