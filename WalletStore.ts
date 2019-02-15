@@ -1,4 +1,4 @@
-import { generateKeysType, config, TransactionType, syncBalances, MAX_DECIMAL_FIAT, syncTxs, syncFiatPrices, explorer_api } from "app/constants";
+import { generateKeysType, config, TransactionType, syncBalances, MAX_DECIMAL_FIAT, syncTxs, syncFiatPrices, explorer_api, REFRESH_TIMEOUT } from "app/constants";
 import { types, destroy, flow } from "mobx-state-tree";
 import axios from "axios";
 import { getKey, setKey } from "app/utils";
@@ -92,11 +92,17 @@ const WalletStore = types.model({
   const setRel = (rel) => {
     self.rel = rel;
   }
-  const fetchTxs = () => {
+  const fetchTxs = (doTimeout = true) => {
     if (self.base && self.rel) {
+      console.log(self.base, self.rel)
       const address = self.keys.get(self.rel) ? self.keys.get(self.rel).address : self.keys.get(self.base).address;
       syncTxs({ rel: self.rel, base: self.base, address });
-    }            
+      if (doTimeout){
+        setTimeout(() => {
+          fetchTxs()
+        }, REFRESH_TIMEOUT);
+      }
+    }
   }
 
   const updatePassLocal = (pass_local: string) => {
@@ -120,10 +126,14 @@ const WalletStore = types.model({
       generateKeys({});
     }
   })
+  const destroyTxs = () => {
+    destroy(self.txs);
+  }
   const emptyKeys = (forget: boolean = false) => {
     self.isUnlocked = false;
     destroy(self.keys);
     destroy(self.balances);
+    destroy(self.txs);
     if (forget) {
       self.mnemonic = "";
       self.passphrase = "";
@@ -197,6 +207,7 @@ const WalletStore = types.model({
     setBalance,
     setTxs,
     fetchTxs,
+    destroyTxs,
 
     setBase,
     setRel,
