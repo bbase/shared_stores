@@ -35,8 +35,8 @@ const WalletStore = types.model({
   pass_local: types.optional(types.string, ""),
 
   fees: types.optional(types.number, 0),
-  gasPrice: types.optional(types.number, 0),
-  gasLimit: types.optional(types.number, 0),
+  gasPrice: types.optional(types.number, 3),
+  gasLimit: types.optional(types.number, 21000),
   priceStore: types.optional(PriceStore,{
     fiat: {
       name: "USD",
@@ -61,7 +61,7 @@ const WalletStore = types.model({
     },
     coinlist(sort_type: number, sort_direction: number){
       let coinlist = self.base ? ([self.base]).concat(config[self.base].forks || [], Object.keys(config[self.base].assets || {})) : [];
-
+      
       if (sort_type == 0 && sort_direction == 0) {
         coinlist.sort((a, b) => { if (a < b) { return -1 } if (a > b) { return 1 } return 0 })
       } else if (sort_type == 0 && sort_direction == 1) {
@@ -94,7 +94,6 @@ const WalletStore = types.model({
   }
   const fetchTxs = (doTimeout = true) => {
     if (self.base && self.rel) {
-      console.log(self.base, self.rel)
       const address = self.keys.get(self.rel) ? self.keys.get(self.rel).address : self.keys.get(self.base).address;
       syncTxs({ rel: self.rel, base: self.base, address });
       if (doTimeout){
